@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Chrome Profile Router",
+  "version": "1.0.0",
+  "description": "Open this page or a link in the right Chrome profile. Shared choices live in the macOS companion app.",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "nativeMessaging"
+  ],
+  "action": {
+    "default_title": "Choose a Chrome profile",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs/UrdyOfPpsS2TfGEWPogIAfUZQ+UENe+rqefCm1FN9CG5XFYietgTtpioousdR1To9J8IeRyBCoOzDxPrnjKk2CP3qknC1j2cOnw/FgkqdT7STE3evSZyFrx1fDQmUeRDiso29C6SbUiQD9XXuDtSSjGma6SQSdzoGOms67RePoRyefbS9vjs8zp7CqNQ92ToYbAqbjIcgmSL3rF96j00kc9diLCsY5e7kuTUTz4impztW7+rkEh1bfZcoHc8MvnlX0SvdxUg10qKVgUtYZ4fEJmBLNL+BLxezrU+HhKOqTIDnZ1HgpfocN1MVEFiol3De4CH58xJkfSmO5Yj57/QIDAQAB"
+}
