@@ -51,13 +51,19 @@ The installer registers the extension's native messaging helper for your macOS a
 - Hold **Option** while opening an external link to choose again. The toolbar extension or the app's paste field also opens the picker regardless of a saved choice.
 - Use the menu bar icon to see saved choices. Click **Forget** to be asked again next time.
 
-Rules match an exact hostname. `github.com` and `gist.github.com` have separate choices, as do different nonstandard ports. A shared login domain gets one remembered profile; use a one-time choice when you need another account.
+Choices saved through the picker match an exact hostname. `github.com` and `gist.github.com` have separate choices, as do different nonstandard ports. A shared login domain gets one remembered profile; use a one-time choice when you need another account.
 
 The router handles external `http` and `https` links sent to your default browser. An app that explicitly launches Chrome bypasses it. Custom app schemes such as `slack://` keep their usual handlers, and links clicked inside Chrome stay in that profile unless you use the extension.
 
+## Let an agent configure rules
+
+You can ask your agent to send particular URLs to a profile or always ask which profile to use. It edits `~/Library/Application Support/Chrome Profile Router/routing-rules.json`, an ordered list of standard regex patterns and destinations. The first matching rule wins, before saved website choices. Changes apply on the next link without restarting the app.
+
+The app includes `--profiles`, `--validate-rules`, and `--explain URL` commands so an agent can find profile IDs and test its changes without opening links. See [the rule format and agent workflow](docs/routing-rules.md).
+
 ## What runs locally
 
-The app reads Chrome's profile names and directories from its `Local State` file. It stores hostname-to-profile choices in `~/Library/Application Support/Chrome Profile Router/rules.json`. It doesn't read cookies or passwords, store full URLs, or send analytics. URL paths, query strings, and fragments are passed through to Chrome.
+The app reads Chrome's profile names and directories from its `Local State` file. It stores hostname-to-profile choices in `~/Library/Application Support/Chrome Profile Router/rules.json` and agent-authored patterns in the separate `routing-rules.json` file. It doesn't read cookies or passwords, record visited URLs, or send analytics. URL paths, query strings, and fragments are passed through to Chrome.
 
 The native helper uses Chrome's [native messaging API](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging) to pass toolbar requests to the app. Chrome's extension APIs don't provide a general profile-switching API, so the macOS companion does the routing.
 
@@ -68,7 +74,7 @@ bash scripts/build.sh
 bash scripts/test.sh
 ```
 
-Tests also need Node.js. There are 31 Swift checks for URL handling, profile discovery, and persistent rules, plus nine tests for the native messaging protocol. The live macOS checks cover both profile directions, remembered choices, one-time overrides, queued links, HTTPS, encoded URLs, and restarting the router. The extension hasn't been tested loaded into Chrome yet; its JavaScript syntax and native host protocol have been checked.
+Tests also need Node.js. They cover URL handling, profile discovery, persistent choices, regex rules, precedence, invalid configurations, the agent CLI, and the native messaging protocol. The live macOS checks cover both profile directions, remembered choices, one-time overrides, queued links, HTTPS, encoded URLs, and restarting the router. The extension hasn't been tested loaded into Chrome yet; its JavaScript syntax and native host protocol have been checked.
 
 Quit the app before running the installer again to update it. Your saved choices stay in place. See [AGENTS.md](AGENTS.md) for the agent setup checklist.
 

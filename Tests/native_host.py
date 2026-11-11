@@ -22,7 +22,7 @@ def request(value):
 
 class NativeTests(unittest.TestCase):
     def test_ping(self):
-        self.assertEqual(request({'action': 'ping'}), {'ok': True, 'version': '1.0.0'})
+        self.assertEqual(request({'action': 'ping'}), {'ok': True, 'version': '1.1.0'})
     def test_unsupported_action(self):
         self.assertFalse(request({'action': 'execute', 'command': 'anything'})['ok'])
     def test_unsupported_url(self):

@@ -16,6 +16,13 @@ if destination.exists():
 shutil.copytree(root / 'build/Chrome Profile Router.app', destination)
 support = home / 'Library/Application Support/Chrome Profile Router'
 support.mkdir(parents=True, exist_ok=True, mode=0o700)
+rules = support / 'routing-rules.json'
+try:
+    with rules.open('x') as file:
+        file.write('{"version": 1, "rules": []}\n')
+    rules.chmod(0o600)
+except FileExistsError:
+    pass
 extension = support / 'extension'
 shutil.copytree(root / 'extension', extension, dirs_exist_ok=True)
 wrapper = support / 'native-host'

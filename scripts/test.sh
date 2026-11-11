@@ -2,8 +2,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build
-xcrun swiftc -swift-version 5 Sources/RouterCore.swift Tests/main.swift -o build/core-tests
+xcrun swiftc -swift-version 5 Sources/RouterCore.swift Sources/URLRules.swift Tests/main.swift -o build/core-tests
 build/core-tests
 python3 Tests/native_host.py
+python3 Tests/rules_cli.py
 node --check extension/background.js
 node --check extension/popup.js

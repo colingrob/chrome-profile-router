@@ -28,7 +28,7 @@ func nativeHost() {
     do {
         guard let message = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let action = message["action"] as? String else { throw RouterError.invalidMessage }
-        if action == "ping" { reply(["ok": true, "version": "1.0.0"]); return }
+        if action == "ping" { reply(["ok": true, "version": "1.1.0"]); return }
         var destination = URLComponents()
         destination.scheme = "chromeroute"
         if action == "choose", let raw = message["url"] as? String {
@@ -53,6 +53,7 @@ if CommandLine.arguments.contains("--native") {
     nativeHost()
     exit(0)
 }
+if let status = runRulesCLI(Array(CommandLine.arguments.dropFirst())) { exit(status) }
 
 struct RouteRequest {
     let link: WebLink
@@ -66,6 +67,7 @@ final class RouterModel: ObservableObject {
     @Published var current: RouteRequest?
     @Published var search = ""
     @Published var remember = true
+    @Published var canRemember = true
     @Published var error: String?
     @Published var notice: String?
     @Published var busy = false
@@ -74,6 +76,7 @@ final class RouterModel: ObservableObject {
     @Published var queuedCount = 0
     var queue: [RouteRequest] = []
     var store: RuleStore?
+    private var ruleLoadingError: String?
     var showWindow: (() -> Void)?
     var hideWindow: (() -> Void)?
 
@@ -127,10 +130,25 @@ final class RouterModel: ObservableObject {
         let request = queue.removeFirst()
         queuedCount = queue.count
         current = request
-        search = ""; remember = true; notice = nil
-        if !request.forcePicker, let profile = store?.destination(for: request.link, profiles: profiles) {
-            launch(profile, save: false)
-        } else { showWindow?() }
+        search = ""; remember = true; canRemember = true; notice = nil
+        if error == ruleLoadingError { error = nil }
+        ruleLoadingError = nil
+        do {
+            // Read on every request so an agent's edits take effect without restarting.
+            let rules = try URLRules()
+            let decision = RoutingPolicy.decide(request.link, profiles: profiles, rules: rules, saved: store)
+            if decision.source == "custom" {
+                remember = false; canRemember = false
+                notice = "Rule ‘\(decision.ruleID!)’ applies. Choosing here opens this link once."
+            }
+            if !request.forcePicker, let profile = decision.profile { launch(profile, save: false) }
+            else { showWindow?() }
+        } catch {
+            remember = false; canRemember = false
+            ruleLoadingError = "Could not load routing-rules.json. Choose a profile for this link. \(error.localizedDescription)"
+            self.error = ruleLoadingError
+            showWindow?()
+        }
     }
     func openInput() {
         do { let link = try WebLink(input.trimmingCharacters(in: .whitespacesAndNewlines)); input = ""; enqueue(link, force: true) }
@@ -236,7 +254,7 @@ struct RouterView: View {
                     }
                 }.frame(maxHeight: .infinity)
                 Divider()
-                Toggle("Remember for this site", isOn: $model.remember).toggleStyle(.checkbox).font(.system(size: 12)).disabled(model.busy)
+                Toggle("Remember for this site", isOn: $model.remember).toggleStyle(.checkbox).font(.system(size: 12)).disabled(model.busy || !model.canRemember)
                 HStack {
                     Text(model.queuedCount > 0 ? "\(model.queuedCount) more links waiting" : "All profiles · One shared preference")
                         .font(.caption).foregroundStyle(.secondary)

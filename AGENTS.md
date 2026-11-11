@@ -11,8 +11,12 @@ When asked to set up Chrome deep-link routing:
 
 Only the `http` and `https` default handlers should change. Do not alter credentials, browser profiles, bookmarks, or unrelated protocol handlers. No database or cloud access is needed.
 
+## Configuring routing rules
+
+Read `docs/routing-rules.md` before changing routing. Use the installed app's `--profiles` command to discover directory IDs. Preserve unrelated rules, validate a temporary candidate with `--validate-rules --rules-file PATH`, and test both matching and nonmatching URLs with `--explain URL --rules-file PATH`. Back up and atomically replace `~/Library/Application Support/Chrome Profile Router/routing-rules.json` only after the candidate passes. Changes apply to the next link without restarting. Do not add service-specific parsers or automatic scope inference.
+
 ## Code
 
-The app is Swift/AppKit with a SwiftUI view. `RouterCore.swift` contains URL validation, profile discovery, and rule persistence. The extension uses Manifest V3 and a small native messaging helper. There are no package dependencies.
+The app is Swift/AppKit with a SwiftUI view. `RouterCore.swift` contains URL validation, profile discovery, and website-choice persistence. `URLRules.swift` loads standard regex rules and implements the read-only agent CLI. The extension uses Manifest V3 and a small native messaging helper. There are no package dependencies.
 
 Run `bash scripts/build.sh` and `bash scripts/test.sh` after changes. Keep full URLs out of persistent state and logs. Preserve the public extension key in `extension/manifest.json`, because it keeps the extension ID stable across installations.

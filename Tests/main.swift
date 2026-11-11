@@ -60,4 +60,61 @@ let metadata: [String: Any] = ["profile": ["info_cache": [
 ]]]
 try JSONSerialization.data(withJSONObject: metadata).write(to: chromeRoot.appendingPathComponent("Local State"))
 try check(Profiles.read(root: chromeRoot) == profiles, "only valid existing visible profiles discovered")
+let customFile = temporary.appendingPathComponent("routing-rules.json")
+func writeRules(_ rules: [[String: Any]], version: Int = 1) throws {
+    try JSONSerialization.data(withJSONObject: ["version": version, "rules": rules]).write(to: customFile, options: .atomic)
+}
+let projectPattern = #"^https://example\.com/team/project(?:[/?#]|$)"#
+let projectRule: [String: Any] = ["id": "project", "pattern": projectPattern, "profile": "Profile 10"]
+try check(URLRules(file: customFile).entries.isEmpty, "absent custom file preserves existing routing")
+try writeRules([projectRule])
+let projectRules = try URLRules(file: customFile)
+for raw in ["https://example.com/team/project", "https://example.com/team/project/pull/12?tab=files#diff", "https://example.com/team/project?q=1"] {
+    try check(projectRules.match(WebLink(raw))?.id == "project", "standard regex covers root and descendants")
+}
+for raw in ["https://example.com/team/project-fork", "https://example.com.evil.test/team/project", "https://elsewhere.test/?next=https://example.com/team/project"] {
+    try check(projectRules.match(WebLink(raw)) == nil, "anchored rule does not overmatch")
+}
+let saved = try RuleStore(file: temporary.appendingPathComponent("saved.json"))
+try saved.set("example.com", profileID: "Default")
+let projectLink = try WebLink("https://example.com/team/project/issues/1")
+try check(RoutingPolicy.decide(projectLink, profiles: profiles, rules: projectRules, saved: saved).profile?.id == "Profile 10", "custom rules override broad saved website choice")
+try check(RoutingPolicy.decide(WebLink("https://example.com/elsewhere"), profiles: profiles, rules: projectRules, saved: saved).source == "website", "nonmatches keep saved website fallback")
+try check(RoutingPolicy.decide(WebLink("https://unknown.test"), profiles: profiles, rules: projectRules, saved: saved).source == "unmatched", "unknown URL asks")
+try check(RoutingPolicy.decide(projectLink, profiles: [profiles[0]], rules: projectRules, saved: saved).profile == nil, "missing custom destination asks instead of falling through")
+let askRule: [String: Any] = ["id": "ask", "pattern": "example", "ask": true]
+try writeRules([askRule, projectRule])
+let decision = RoutingPolicy.decide(projectLink, profiles: profiles, rules: try URLRules(file: customFile), saved: saved)
+try check(decision.ruleID == "ask" && decision.profile == nil, "first match wins and ask suppresses broad fallback")
+try writeRules([projectRule, askRule])
+try check(URLRules(file: customFile).match(projectLink)?.id == "project", "edited order applies on next load")
+try writeRules([["id": "off", "pattern": ".*", "ask": true, "enabled": false], projectRule])
+try check(URLRules(file: customFile).match(projectLink)?.id == "project", "disabled rules skipped")
+try writeRules([["id": "query", "pattern": #"[?&]workspace=work(?:&|#|$)"#, "profile": "Profile 10"]])
+try check(URLRules(file: customFile).match(WebLink("https://any.test/path?a=1&workspace=work#home"))?.id == "query", "arbitrary query matching uses same regex API")
+try writeRules([["id": "fragment", "pattern": "#work$", "ask": true]])
+try check(URLRules(file: customFile).match(WebLink("https://any.test/path#work"))?.id == "fragment", "fragments can be matched")
+try writeRules([["id": "case", "pattern": "(?i)^https://example\\.com/TEAM/", "ask": true]])
+try check(URLRules(file: customFile).match(projectLink)?.id == "case", "standard inline regex options supported")
+for invalid in [
+    [["id": "bad", "pattern": "[", "ask": true]],
+    [["id": "bad", "pattern": ".*"]],
+    [["id": "bad", "pattern": ".*", "ask": true, "profile": "Default"]],
+    [["id": "bad", "pattern": ".*", "profile": "../../bad"]],
+    [["id": "bad", "pattern": ".*", "ask": true, "hostnmae": "example.com"]],
+    [["id": "bad", "pattern": "", "ask": true]],
+    [["id": "", "pattern": ".*", "ask": true]],
+    [projectRule, projectRule]
+] as [[[String: Any]]] {
+    try writeRules(invalid)
+    try rejects("invalid config rejected instead of silently routing") { _ = try URLRules(file: customFile) }
+}
+try writeRules([], version: 99)
+try rejects("unsupported custom rules version rejected") { _ = try URLRules(file: customFile) }
+try Data("broken".utf8).write(to: customFile)
+try rejects("partial writes fail safely") { _ = try URLRules(file: customFile) }
+try writeRules([projectRule])
+try check(URLRules(file: customFile).match(projectLink)?.id == "project", "valid replacement recovers without app restart")
+try saved.set("other.test", profileID: "Default")
+try check(URLRules(file: customFile).match(projectLink)?.id == "project", "picker website writes do not overwrite agent rules")
 print("\(checks) checks passed")
